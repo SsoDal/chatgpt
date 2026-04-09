@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+
+# 환경변수
+.env
+
+# JSON 데이터
+latest.json
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo

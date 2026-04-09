@@ -1,0 +1,13 @@
+<h1>📊 트레이딩 분석 대시보드</h1>
+
+{% for d in data %}
+<div>
+    <h2>{{ d.ticker }}</h2>
+    <p>현재가: {{ d.price }}</p>
+    <p>전략: {{ d.strategy }}</p>
+    <p>손절: {{ d.stop }}</p>
+    <p>익절: {{ d.target }}</p>
+    <p>거래량: {{ d.volume }}</p>
+</div>
+<hr>
+{% endfor %}
