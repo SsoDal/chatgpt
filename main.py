@@ -3,6 +3,8 @@ import time
 from analyzer import score_news, extract_stocks
 from data import get_market_data
 from strategy import calculate_levels, classify_trade
+from chart import get_chart_data, calculate_support_resistance, price_position
+from strategy_upgrade import calculate_winrate
 from telegram_bot import send
 
 
@@ -22,20 +24,36 @@ def run(news_list):
             if not market:
                 continue
 
-            stop, target = calculate_levels(market["price"], score)
-            strategy = classify_trade(score, market["volume"])
+            price  = market["price"]
+            volume = market["volume"]
+
+            stop, target = calculate_levels(price, score)
+            strategy     = classify_trade(score, volume)
+
+            # 차트 분석 (지지/저항 + 위치)
+            highs, lows             = get_chart_data(market["ticker"])
+            support, resistance     = calculate_support_resistance(highs, lows)
+            position                = price_position(price, support, resistance)
+
+            # 승률 계산
+            winrate = calculate_winrate(score, volume, position)
 
             results.append({
-                "ticker": market["ticker"],
-                "price": market["price"],
-                "volume": market["volume"],
-                "strategy": strategy,
-                "stop": round(stop, 0),
-                "target": round(target, 0)
+                "ticker":     market["ticker"],
+                "price":      price,
+                "volume":     volume,
+                "strategy":   strategy,
+                "stop":       round(stop, 0),
+                "target":     round(target, 0),
+                "support":    round(support, 0)    if support    else None,
+                "resistance": round(resistance, 0) if resistance else None,
+                "position":   position,
+                "winrate":    winrate
             })
 
-            print(f"   ✅ {market['ticker']} | 현재가: {market['price']:,.0f} | {strategy}")
+            print(f"   ✅ {market['ticker']} | 현재가: {price:,.0f} | {strategy}")
             print(f"      손절: {stop:,.0f} / 익절: {target:,.0f}")
+            print(f"      지지: {support} / 저항: {resistance} | 위치: {position} | 승률: {winrate}%")
 
     if not results:
         print("⚠️  분석 결과 없음 (종목 추출 실패 또는 시세 조회 실패)")
@@ -50,7 +68,9 @@ def run(news_list):
     msg = "📊 매매 판단 정보\n\n"
     for r in results:
         msg += f"{r['ticker']} | {r['strategy']}\n"
-        msg += f"현재가 {r['price']:,.0f} | 손절 {r['stop']:,.0f} / 익절 {r['target']:,.0f}\n\n"
+        msg += f"승률: {r['winrate']}%\n"
+        msg += f"위치: {r['position']}\n"
+        msg += f"손절 {r['stop']:.0f} / 익절 {r['target']:.0f}\n\n"
 
     send(msg)
 
