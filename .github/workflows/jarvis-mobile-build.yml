@@ -52,9 +52,8 @@ jobs:
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
           disable-animations: true
           script: |
-            APK=app/build/outputs/apk/release/app-release.apk
             adb devices
-            adb install "$APK"
+            adb install app/build/outputs/apk/release/app-release.apk
             adb shell pm path kr.zombi.jarvismobile.personal
             adb shell dumpsys package kr.zombi.jarvismobile.personal | grep -E 'versionName|versionCode|targetSdk|minSdk' | head -20
             adb shell am start -W -n kr.zombi.jarvismobile.personal/kr.zombi.jarvismobile.MainActivity
