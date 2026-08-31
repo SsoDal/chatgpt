@@ -27,20 +27,23 @@ jobs:
         run: |
           yes | sdkmanager --licenses >/dev/null || true
           sdkmanager "platforms;android-35" "build-tools;35.0.0"
-      - name: Build debug APK
-        run: gradle --no-daemon clean assembleDebug
-      - name: Verify APK
+      - name: Build signed release APK
+        run: gradle --no-daemon clean assembleRelease
+      - name: Verify APK and signature
         run: |
-          test -f app/build/outputs/apk/debug/app-debug.apk
-          ls -lh app/build/outputs/apk/debug/app-debug.apk
+          APK=app/build/outputs/apk/release/app-release.apk
+          test -f "$APK"
+          ls -lh "$APK"
+          $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose --print-certs "$APK"
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$APK" | head -20
       - name: Prepare artifact
         run: |
           mkdir -p out
-          cp app/build/outputs/apk/debug/app-debug.apk out/JARVIS_Mobile.apk
+          cp app/build/outputs/apk/release/app-release.apk out/JARVIS_Mobile_2.apk
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: JARVIS_Mobile_APK
-          path: out/JARVIS_Mobile.apk
+          name: JARVIS_Mobile_2_APK
+          path: out/JARVIS_Mobile_2.apk
           if-no-files-found: error
           retention-days: 7
