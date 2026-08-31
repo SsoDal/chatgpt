@@ -6,9 +6,9 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
+  build-and-install-test:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 35
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -26,24 +26,52 @@ jobs:
       - name: Android SDK packages
         run: |
           yes | sdkmanager --licenses >/dev/null || true
-          sdkmanager "platforms;android-35" "build-tools;35.0.0"
+          sdkmanager "platforms;android-35" "build-tools;35.0.0" "platform-tools"
       - name: Build signed release APK
         run: gradle --no-daemon clean assembleRelease
-      - name: Verify APK and signature
+      - name: Static APK verification
         run: |
           APK=app/build/outputs/apk/release/app-release.apk
-          test -f "$APK"
-          ls -lh "$APK"
+          test -s "$APK"
+          unzip -t "$APK" >/dev/null
           $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose --print-certs "$APK"
-          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$APK" | head -20
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$APK"
+          sha256sum "$APK"
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm || true
+      - name: Android 16 real install and launch test
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          disable-animations: true
+          script: |
+            set -euxo pipefail
+            APK=app/build/outputs/apk/release/app-release.apk
+            adb devices
+            adb install "$APK"
+            adb shell pm path kr.zombi.jarvismobile.personal
+            adb shell dumpsys package kr.zombi.jarvismobile.personal | grep -E 'versionName|versionCode|targetSdk|minSdk' | head -20
+            adb shell am start -W -n kr.zombi.jarvismobile.personal/kr.zombi.jarvismobile.MainActivity
+            sleep 3
+            adb shell dumpsys activity activities | grep -E 'mResumedActivity|topResumedActivity' | grep kr.zombi.jarvismobile.personal
       - name: Prepare artifact
         run: |
           mkdir -p out
-          cp app/build/outputs/apk/release/app-release.apk out/JARVIS_Mobile_2.apk
-      - name: Upload APK
+          cp app/build/outputs/apk/release/app-release.apk out/JARVIS_Mobile_3.apk
+          sha256sum out/JARVIS_Mobile_3.apk > out/JARVIS_Mobile_3.sha256.txt
+      - name: Upload verified APK
         uses: actions/upload-artifact@v4
         with:
-          name: JARVIS_Mobile_2_APK
-          path: out/JARVIS_Mobile_2.apk
+          name: JARVIS_Mobile_3_VERIFIED
+          path: |
+            out/JARVIS_Mobile_3.apk
+            out/JARVIS_Mobile_3.sha256.txt
           if-no-files-found: error
           retention-days: 7
